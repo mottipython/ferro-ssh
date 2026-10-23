@@ -26,8 +26,14 @@ A secure, high-performance, and feature-rich graphical SSH client written in Rus
 - **📁 Integrated SFTP Remote File Browser:**
   - Browse remote directories with permissions, file sizes, and modification dates.
   - Native file dialogs for uploading and downloading files.
+- **🧰 Command Toolbox & Snippets (F2):**
+  - Over 35 categorized sysadmin diagnostics across System, Disk, Network, Docker, Services, and Security.
+  - One-click `▶ Run` (direct execution), `✏ Insert` (paste without Enter for editing arguments), and `📋 Copy`.
+  - Add and manage persistent custom commands (`~/.config/ferro-ssh/toolbox.json`).
 - **🔀 Port Forwarding & Tunnel Manager:**
   - Configure and manage local port forwards (`-L local_port:remote_host:remote_port`).
+- **🪟 Cross-Platform:**
+  - Native builds for Linux (Fedora, Ubuntu, Arch) and Windows (`.exe`).
 - **✅ Snyk Security Validated:**
   - Passed `snyk code test` with 0 security issues or vulnerabilities.
 
@@ -35,17 +41,16 @@ A secure, high-performance, and feature-rich graphical SSH client written in Rus
 
 ## Building and Running
 
-### Prerequisites
-* Rust 1.80+ (`cargo`, `rustc`)
-* OpenSSH client (`ssh`, `scp`)
-
-### Run Development Build
-```bash
-cargo run
-```
-
-### Build Optimized Release
+### Linux (Fedora / Ubuntu)
 ```bash
 cargo build --release
 ```
 The binary will be located at `target/release/ferro-ssh`.
+
+### Windows (.exe)
+Cross-compile with the provided Docker builder:
+```bash
+docker build -f build-windows.Dockerfile -t ferro-windows-builder .
+docker run --rm -v $(pwd):/build ferro-windows-builder cargo build --target x86_64-pc-windows-gnu --release
+```
+The executable will be located at `target/x86_64-pc-windows-gnu/release/ferro-ssh.exe`.

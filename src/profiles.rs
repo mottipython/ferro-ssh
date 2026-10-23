@@ -166,6 +166,7 @@ fn uuid_simple() -> String {
 mod whoami {
     pub fn username_or_default() -> String {
         std::env::var("USER")
+            .or_else(|_| std::env::var("USERNAME"))
             .or_else(|_| std::env::var("LOGNAME"))
             .unwrap_or_else(|_| "user".to_string())
     }
