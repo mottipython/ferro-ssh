@@ -1,0 +1,7 @@
+services:
+  ssh-test:
+    image: ferro-ssh-test:latest
+    container_name: ferro-ssh-test
+    restart: unless-stopped
+    ports:
+      - "2222:22"
