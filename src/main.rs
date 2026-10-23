@@ -5,6 +5,7 @@ mod security;
 mod session;
 mod sftp;
 mod terminal;
+mod toolbox;
 mod tunnels;
 
 use app::FerroSshApp;
