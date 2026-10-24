@@ -1,3 +1,4 @@
+use crate::security::shell_quote;
 use std::path::Path;
 use std::process::Command;
 
@@ -39,11 +40,11 @@ impl SftpBrowser {
 
         let mut cmd = Command::new("ssh");
         cmd.arg("-p").arg(self.port.to_string());
+        cmd.arg("--");
         cmd.arg(format!("{}@{}", self.username, self.host));
-        // Safe argument: non-interactive ls command
-        cmd.arg("ls");
-        cmd.arg("-la");
-        cmd.arg(&self.current_path);
+        // Safe argument: non-interactive ls command with POSIX single-quoted path
+        // to prevent remote shell command breakout or metacharacter injection.
+        cmd.arg(format!("ls -la {}", shell_quote(&self.current_path)));
 
         let output = cmd.output().map_err(|e| format!("SSH command failed: {}", e))?;
         if !output.status.success() {
@@ -53,48 +54,7 @@ impl SftpBrowser {
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let mut entries = Vec::new();
-
-        for line in stdout.lines() {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            // Typical ls -la line: drwxr-xr-x 2 user group 4096 Oct 23 12:00 dirname
-            if parts.len() >= 9 {
-                let perms = parts[0];
-                let is_dir = perms.starts_with('d');
-                let size: u64 = parts[4].parse().unwrap_or(0);
-                let modified = format!("{} {} {}", parts[5], parts[6], parts[7]);
-                let name = parts[8..].join(" ");
-
-                if name == "." {
-                    continue;
-                }
-
-                entries.push(RemoteFileEntry {
-                    name,
-                    is_dir,
-                    size,
-                    permissions: perms.to_string(),
-                    modified,
-                });
-            }
-        }
-
-        // Sort: directories first, then alphabetically
-        entries.sort_by(|a, b| {
-            if a.name == ".." {
-                std::cmp::Ordering::Less
-            } else if b.name == ".." {
-                std::cmp::Ordering::Greater
-            } else if a.is_dir && !b.is_dir {
-                std::cmp::Ordering::Less
-            } else if !a.is_dir && b.is_dir {
-                std::cmp::Ordering::Greater
-            } else {
-                a.name.cmp(&b.name)
-            }
-        });
-
-        self.entries = entries;
+        self.entries = parse_ls_output(&stdout);
         self.is_loading = false;
         self.status_message = Some(format!("Loaded {} items in {}", self.entries.len(), self.current_path));
         Ok(())
@@ -122,6 +82,7 @@ impl SftpBrowser {
 
         let mut cmd = Command::new("scp");
         cmd.arg("-P").arg(self.port.to_string());
+        cmd.arg("--");
         cmd.arg(remote_spec);
         cmd.arg(local_dest.to_string_lossy().to_string());
 
@@ -140,6 +101,7 @@ impl SftpBrowser {
 
         let mut cmd = Command::new("scp");
         cmd.arg("-P").arg(self.port.to_string());
+        cmd.arg("--");
         cmd.arg(local_src.to_string_lossy().to_string());
         cmd.arg(remote_spec);
 
@@ -150,4 +112,62 @@ impl SftpBrowser {
             Err(String::from_utf8_lossy(&output.stderr).to_string())
         }
     }
+}
+
+/// Parses the output of non-interactive `ls -la` safely into structured entries.
+/// Resilient against malformed lines, irregular spacing, unicode filenames, and missing fields.
+pub fn parse_ls_output(stdout: &str) -> Vec<RemoteFileEntry> {
+    let mut entries = Vec::new();
+
+    for line in stdout.lines() {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        // Standard ls -la line: drwxr-xr-x 2 user group 4096 Oct 23 12:00 dirname
+        if parts.len() >= 9 {
+            let perms = parts[0];
+            let is_dir = perms.starts_with('d');
+            let size: u64 = parts[4].parse().unwrap_or(0);
+            let modified = format!("{} {} {}", parts[5], parts[6], parts[7]);
+            let name = parts[8..].join(" ");
+
+            if name == "." {
+                continue;
+            }
+
+            entries.push(RemoteFileEntry {
+                name,
+                is_dir,
+                size,
+                permissions: perms.to_string(),
+                modified,
+            });
+        }
+    }
+
+    // Sort: directories strictly precede non-directories, with parent ".." first among dirs
+    entries.sort_by(|a, b| {
+        if a.name == b.name && a.is_dir == b.is_dir {
+            return std::cmp::Ordering::Equal;
+        }
+        // Directories always precede non-directories
+        if a.is_dir != b.is_dir {
+            return if a.is_dir {
+                std::cmp::Ordering::Less
+            } else {
+                std::cmp::Ordering::Greater
+            };
+        }
+        // Among directories, parent ".." always comes first
+        if a.is_dir {
+            if a.name == ".." {
+                return std::cmp::Ordering::Less;
+            }
+            if b.name == ".." {
+                return std::cmp::Ordering::Greater;
+            }
+        }
+        // Alphabetical sort within the same entry type
+        a.name.cmp(&b.name)
+    });
+
+    entries
 }

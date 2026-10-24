@@ -55,6 +55,8 @@ pub struct TerminalScreen {
 #[allow(dead_code)]
 impl TerminalScreen {
     pub fn new(cols: usize, rows: usize) -> Self {
+        let cols = cols.max(1);
+        let rows = rows.max(1);
         let grid = vec![vec![TerminalCell::default(); cols]; rows];
         Self {
             cols,
@@ -73,7 +75,9 @@ impl TerminalScreen {
     }
 
     pub fn resize(&mut self, new_cols: usize, new_rows: usize) {
-        if new_cols == 0 || new_rows == 0 || (new_cols == self.cols && new_rows == self.rows) {
+        let new_cols = new_cols.max(1);
+        let new_rows = new_rows.max(1);
+        if new_cols == self.cols && new_rows == self.rows {
             return;
         }
 
@@ -163,7 +167,12 @@ impl Perform for TerminalScreen {
                 c,
                 style: self.current_style,
             };
-            self.cursor_x += 1;
+            if self.cursor_x + 1 < self.cols {
+                self.cursor_x += 1;
+            } else {
+                self.cursor_x = 0;
+                self.newline();
+            }
         }
     }
 

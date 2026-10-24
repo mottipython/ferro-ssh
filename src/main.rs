@@ -1,16 +1,5 @@
-mod app;
-mod modals;
-mod profiles;
-mod security;
-mod session;
-mod sftp;
-mod terminal;
-mod theme;
-mod toolbox;
-mod tunnels;
-
-use app::FerroSshApp;
 use eframe::egui;
+use ferro_ssh::app::FerroSshApp;
 
 fn main() -> eframe::Result<()> {
     let native_options = eframe::NativeOptions {

@@ -6,6 +6,18 @@ authors = ["FerroSSH Team"]
 description = "A secure, feature-rich GUI SSH client with PTY terminal, SFTP, and host key protection"
 license = "MIT"
 
+[lib]
+name = "ferro_ssh"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ferro-ssh"
+path = "src/main.rs"
+
+[[bin]]
+name = "fuzz-runner"
+path = "src/bin/fuzz_runner.rs"
+
 [dependencies]
 eframe = { version = "0.28", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -23,5 +35,5 @@ base64 = "0.22"
 opt-level = 3
 lto = true
 codegen-units = 1
-panic = "abort"
+panic = "unwind"
 strip = true

@@ -5,6 +5,7 @@ use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use std::io::{Read, Write};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
+use zeroize::Zeroize;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SessionStatus {
@@ -73,7 +74,8 @@ impl SshSession {
             }
         }
 
-        // Host specification
+        // Host specification with option-injection guard
+        cmd.arg("--");
         cmd.arg(format!("{}@{}", profile.username, profile.host));
 
         let slave = pty_pair.slave;
@@ -113,14 +115,15 @@ impl SshSession {
             })
             .map_err(|e| format!("Failed to spawn reader thread: {}", e))?;
 
-        // Background writer thread: receives keystrokes from GUI and writes to PTY
+        // Background writer thread: receives keystrokes from GUI and writes to PTY.
+        // Incoming sensitive data (passwords, input) is zeroized immediately after writing.
         thread::Builder::new()
             .name("ssh-pty-writer".to_string())
             .spawn(move || {
-                while let Ok(data) = rx_from_gui.recv() {
-                    if writer.write_all(&data).is_err() || writer.flush().is_err() {
-                        break;
-                    }
+                while let Ok(mut data) = rx_from_gui.recv() {
+                    let _ = writer.write_all(&data);
+                    let _ = writer.flush();
+                    data.zeroize();
                 }
             })
             .map_err(|e| format!("Failed to spawn writer thread: {}", e))?;
@@ -153,7 +156,10 @@ impl SshSession {
         if !new_text.is_empty() {
             self.raw_buffer_history.push_str(&new_text);
             if self.raw_buffer_history.len() > 8192 {
-                let cut = self.raw_buffer_history.len() - 4096;
+                let mut cut = self.raw_buffer_history.len() - 4096;
+                while !self.raw_buffer_history.is_char_boundary(cut) && cut < self.raw_buffer_history.len() {
+                    cut += 1;
+                }
                 self.raw_buffer_history.drain(..cut);
             }
 
@@ -222,11 +228,12 @@ impl SshSession {
         }
     }
 
-    /// User sends password
+    /// User sends password with immediate buffer zeroization
     pub fn send_password(&mut self, secret: &SecureSecret) {
         let mut bytes = secret.as_str().as_bytes().to_vec();
         bytes.push(b'\n');
         self.send_input(&bytes);
+        bytes.zeroize();
         self.active_prompt = None;
     }
 
@@ -249,7 +256,7 @@ impl SshSession {
     }
 }
 
-fn extract_fingerprint(text: &str) -> Option<String> {
+pub fn extract_fingerprint(text: &str) -> Option<String> {
     if let Some(idx) = text.find("SHA256:") {
         let sub = &text[idx..];
         let end = sub.find(|c: char| c.is_whitespace() || c == '.' || c == '\n').unwrap_or(sub.len());
@@ -258,7 +265,7 @@ fn extract_fingerprint(text: &str) -> Option<String> {
     None
 }
 
-fn extract_key_type(text: &str) -> Option<String> {
+pub fn extract_key_type(text: &str) -> Option<String> {
     for kt in &["ED25519", "RSA", "ECDSA", "DSA"] {
         if text.to_uppercase().contains(kt) {
             return Some(kt.to_string());

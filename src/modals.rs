@@ -1,6 +1,7 @@
 use crate::profiles::{AuthMethod, ConnectionProfile};
 use crate::security::SecureSecret;
 use eframe::egui::{self, Color32, RichText, Vec2};
+use zeroize::Zeroize;
 
 pub struct ModalState {
     pub editing_profile: Option<ConnectionProfile>,
@@ -195,7 +196,7 @@ pub fn render_password_modal(
                 }
 
                 if ui.button("Cancel").clicked() {
-                    password_input.clear();
+                    password_input.zeroize();
                     action = PasswordAction::Cancel;
                 }
             });

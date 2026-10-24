@@ -210,3 +210,53 @@ impl KnownHostsManager {
         Ok(())
     }
 }
+
+/// Safely escapes an arbitrary string for POSIX shell execution using strict single-quote encapsulation.
+/// Any single quote inside the string is closed, escaped, and reopened: '\''
+/// In POSIX shells (sh, bash, zsh, dash), no character or variable inside single quotes
+/// is expanded, completely eliminating shell metacharacter injection.
+pub fn shell_quote(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "'\\''"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_shell_quote_basic() {
+        assert_eq!(shell_quote("/var/log/syslog"), "'/var/log/syslog'");
+    }
+
+    #[test]
+    fn test_shell_quote_with_spaces() {
+        assert_eq!(shell_quote("My Documents/file.txt"), "'My Documents/file.txt'");
+    }
+
+    #[test]
+    fn test_shell_quote_with_metacharacters() {
+        assert_eq!(
+            shell_quote("; rm -rf /; $(id) && `whoami` | echo \"$PWNED\""),
+            "'; rm -rf /; $(id) && `whoami` | echo \"$PWNED\"'"
+        );
+    }
+
+    #[test]
+    fn test_shell_quote_with_single_quotes() {
+        assert_eq!(shell_quote("user's file.txt"), "'user'\\''s file.txt'");
+    }
+
+    #[test]
+    fn test_secure_secret_redacted_debug() {
+        let secret = SecureSecret::new("super_secret_password".to_string());
+        let debug_str = format!("{:?}", secret);
+        assert!(!debug_str.contains("super_secret_password"));
+        assert_eq!(debug_str, "SecureSecret([REDACTED])");
+    }
+
+    #[test]
+    fn test_host_pattern_formatting() {
+        assert_eq!(KnownHostsManager::format_host_pattern("example.com", 22), "example.com");
+        assert_eq!(KnownHostsManager::format_host_pattern("example.com", 2222), "[example.com]:2222");
+    }
+}

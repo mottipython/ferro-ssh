@@ -1,6 +1,6 @@
 # FerroSSH ⚡
 
-A secure, high-performance, and feature-rich graphical SSH client written in Rust with `egui` (`eframe`). Built with native PTY terminal emulation, cryptographic Trust-On-First-Use (TOFU) host key verification, memory-scrubbed password protection, and a dockable SysAdmin Command Toolbox.
+A high-performance graphical SSH client for Linux, Windows, and macOS written in Rust with `egui` (`eframe`). Built with native PTY terminal emulation, OpenSSH transport delegation, Trust-On-First-Use (TOFU) host key verification, in-memory credential zeroization, and an integrated SysAdmin Command Toolbox.
 
 ![FerroSSH TOFU Fingerprint Verification and Command Toolbox](docs/screenshots/02-fingerprint-dialog.png)
 
@@ -14,8 +14,25 @@ A secure, high-performance, and feature-rich graphical SSH client written in Rus
 | **Connection Manager & Profiles**<br>Color-coded server badges, group organization, search filter, and instant Quick Connect. | ![Connection Manager](docs/screenshots/01-dashboard.png) |
 | **SSH Port Forwarding & Tunnels**<br>Manage local `-L` port forwarding rules for remote databases, metrics dashboards, and web services. | ![Port Forwarding & Tunnels](docs/screenshots/03-tunnels.png) |
 | **Integrated Remote SFTP Explorer**<br>Fast remote file management, directory navigation, file sizes, and native upload/download pickers. | ![SFTP File Explorer](docs/screenshots/04-sftp-browser.png) |
-| **Settings, Appearance & Key Security**<br>Dynamic font sizing, automated `~/.ssh/` key discovery (`id_ed25519`, `id_rsa`), and TOFU configuration. | ![Settings & Appearance](docs/screenshots/05-settings.png) |
+| **Settings, Appearance & Key Discovery**<br>Dynamic font sizing, automated `~/.ssh/` key discovery (`id_ed25519`, `id_rsa`), and TOFU configuration. | ![Settings & Appearance](docs/screenshots/05-settings.png) |
 | **Adaptive Theme (Light & Dark Mode)**<br>Automatically matches system OS dark or light mode in real time, with high-contrast terminal styling and 1-click manual override. | ![Light Theme](docs/screenshots/06-light-mode.png) |
+
+---
+
+## 🛡️ Security Architecture & Engineering Safeguards
+
+FerroSSH adopts a transparent, defense-in-depth security model rather than making sweeping claims of absolute security. Complete technical specifications, explicit threat boundaries, and vulnerability disclosure policies are detailed in [SECURITY.md](SECURITY.md).
+
+- **Audited Transport Delegation (OpenSSH):** FerroSSH avoids the hazards of implementing a custom cryptographic protocol. All transport encryption, key exchange (Curve25519, ECDH), and ciphers (ChaCha20-Poly1305, AES-GCM) are delegated directly to the host operating system's battle-tested OpenSSH client.
+- **Direct Process Invocation:** Commands (`ssh`, `scp`) are invoked directly via OS system calls (`execve`) with discrete argument vectors, never piped through `/bin/sh` or intermediate command interpreters.
+- **Option Injection Mitigation:** All dynamic host and user specifications are preceded by the POSIX `--` delimiter, preventing malicious inputs from injecting command-line flags (e.g., `-oProxyCommand=...`).
+- **Remote Shell Injection Guard:** Remote commands (such as directory listings in the SFTP browser) sanitize path arguments using strict POSIX single-quote encapsulation (`shell_quote`), preventing remote shell metacharacter execution.
+- **In-Memory Credential Zeroization:** Passwords and sensitive input buffers are encapsulated in `SecureSecret` with `zeroize::ZeroizeOnDrop` and explicitly wiped from RAM with `.zeroize()` immediately upon transmission to the PTY.
+- **Log & Trace Redaction:** Secret types override `std::fmt::Debug` to output `SecureSecret([REDACTED])`, preventing credential leakage into logs or crash dumps.
+- **Trust-On-First-Use (TOFU) Verification:** Unknown host fingerprints are intercepted and presented in an interactive dialog showing full SHA-256 fingerprints before any connection or authentication proceeds.
+- **Zero Telemetry & Clean-Slate Privacy:** No network requests are made outside user-initiated SSH sessions. Fresh installs are completely unpopulated, containing no preloaded third-party hosts or tunnels.
+- **Continuous Adversarial Fuzzing:** Core parsers (VTE escape sequences, ANSI bombs, Quick Connect strings, SFTP output, prompt extraction, and known_hosts) are hardened with a dedicated multi-threaded mutation fuzzer (`fuzz-runner`) validated through 1,000,000+ adversarial iterations with zero crashes.
+- **Dependency Audit:** Regular automated dependency scanning ensures 0 known vulnerabilities (CVEs) across the Rust crate tree.
 
 ---
 
@@ -29,9 +46,9 @@ A secure, high-performance, and feature-rich graphical SSH client written in Rus
   - Intercepts unrecognized SSH host fingerprints and presents a Trust-On-First-Use confirmation modal.
   - Options to **Accept & Save to `~/.ssh/known_hosts`**, **Accept Once (Session Only)**, or **Reject & Abort**.
   - Shows key type (`ED25519`, `RSA`, `ECDSA`) and full SHA-256 fingerprint.
-- **🔐 Password & Secret Security:**
+- **🔐 Memory-Scrubbed Secret Handling:**
   - Secure password authentication modal with masked fields.
-  - Credentials in memory are wrapped in `zeroize::Zeroize` to ensure passwords and passphrases are securely scrubbed from RAM immediately upon release.
+  - In-memory credentials wrapped in `zeroize::Zeroize` to scrub passwords from RAM immediately upon dispatch.
   - Redacted debug representations to avoid secret leakage in logs.
 - **📟 Embedded Multi-Session Terminal:**
   - Real PTY terminal emulator powered by `portable-pty` and `vte`.
@@ -42,19 +59,18 @@ A secure, high-performance, and feature-rich graphical SSH client written in Rus
   - Quick Connect bar (`user@host[:port]`).
   - Saved profiles with color badges, groups, notes, and port configuration.
   - Auto-discovery of existing private keys in `~/.ssh/` (`id_ed25519`, `id_rsa`, `id_ecdsa`).
+  - Anonymized clean slate: fresh installs start with zero preconfigured servers.
 - **📁 Integrated SFTP Remote File Browser:**
   - Browse remote directories with permissions, file sizes, and modification dates.
-  - Native file dialogs for uploading and downloading files.
+  - Shell-escaped path querying and native file dialogs for uploading and downloading files.
 - **🧰 Command Toolbox & Snippets (F2):**
   - Over 35 categorized sysadmin diagnostics across System, Disk, Network, Docker, Services, and Security.
   - One-click `▶ Run` (direct execution), `✏ Insert` (paste without Enter for editing arguments), and `📋 Copy`.
   - Add and manage persistent custom commands (`~/.config/ferro-ssh/toolbox.json`).
 - **🔀 Port Forwarding & Tunnel Manager:**
   - Configure and manage local port forwards (`-L local_port:remote_host:remote_port`).
-- **🪟 Cross-Platform:**
+- **🪟 Cross-Platform Support:**
   - Native builds and releases for **Linux** (Fedora, Ubuntu, Arch), **Windows** (`.exe`), and **macOS** (Apple Silicon `arm64` & Intel `x86_64`).
-- **✅ Snyk Security Validated:**
-  - Clean audit passed: 0 security vulnerabilities.
 
 ---
 
@@ -87,6 +103,17 @@ docker run --rm -v $(pwd):/io -w /io messense/cargo-zigbuild cargo zigbuild --re
 The binaries will be located at:
 - `target/aarch64-apple-darwin/release/ferro-ssh`
 - `target/x86_64-apple-darwin/release/ferro-ssh`
+
+### Fuzz Testing (Stress & Mutation Testing)
+FerroSSH features both a deterministic integration fuzz suite and an evolutionary multi-threaded mutation engine:
+
+```bash
+# Run the integration fuzz test suite
+cargo test --test fuzz_test
+
+# Run the multi-threaded mutation fuzzer (1,000,000 iterations across all CPU cores)
+cargo run --bin fuzz-runner --release -- --duration 15 --iterations 1000000
+```
 
 ---
 

@@ -10,6 +10,7 @@ use crate::theme::{build_dark_visuals, build_light_visuals, AppSettings, ThemeMo
 use crate::toolbox::{CustomCmdDraft, ToolboxCategory, ToolboxStore};
 use crate::tunnels::{PortTunnel, TunnelManager};
 use eframe::egui::{self, Color32, FontFamily, FontId, Key, Modifiers, RichText, Vec2};
+use zeroize::Zeroize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ViewMode {
@@ -162,23 +163,11 @@ impl FerroSshApp {
     }
 
     pub fn connect_quick(&mut self) {
-        let input = self.quick_connect.trim().to_string();
-        if input.is_empty() {
+        if self.quick_connect.trim().is_empty() {
             return;
         }
 
-        // Parse user@host:port or host:port or user@host
-        let (user, remainder) = if let Some((u, rest)) = input.split_once('@') {
-            (u.to_string(), rest.to_string())
-        } else {
-            ("root".to_string(), input)
-        };
-
-        let (host, port) = if let Some((h, p)) = remainder.split_once(':') {
-            (h.to_string(), p.parse().unwrap_or(22))
-        } else {
-            (remainder, 22)
-        };
+        let (user, host, port) = parse_quick_connect_str(&self.quick_connect);
 
         let mut profile = ConnectionProfile::default();
         profile.name = format!("{}@{}", user, host);
@@ -188,6 +177,53 @@ impl FerroSshApp {
 
         self.connect_to_profile(profile);
     }
+}
+
+/// Safely parses Quick Connect strings like `user@host[:port]`, `host:port`, or `[::1]:2222`.
+/// Immune to malformed inputs, oversized port numbers, IPv6 bracket patterns, empty hosts, and port 0.
+pub fn parse_quick_connect_str(input: &str) -> (String, String, u16) {
+    let input = input.trim();
+    if input.is_empty() {
+        return ("root".to_string(), "localhost".to_string(), 22);
+    }
+
+    let (user, remainder) = if let Some((u, rest)) = input.split_once('@') {
+        let u = u.trim();
+        let rest = rest.trim();
+        (if u.is_empty() { "root".to_string() } else { u.to_string() }, rest)
+    } else {
+        ("root".to_string(), input)
+    };
+
+    let (mut host, mut port) = if remainder.starts_with('[') {
+        if let Some(close_bracket) = remainder.find(']') {
+            let h = remainder[1..close_bracket].trim();
+            let after = remainder[close_bracket + 1..].trim();
+            let p = if let Some(p_str) = after.strip_prefix(':') {
+                p_str.trim().parse::<u16>().unwrap_or(22)
+            } else {
+                22
+            };
+            (h.to_string(), p)
+        } else {
+            (remainder.to_string(), 22)
+        }
+    } else if let Some((h, p)) = remainder.split_once(':') {
+        let h = h.trim();
+        let p = p.trim().parse::<u16>().unwrap_or(22);
+        (h.to_string(), p)
+    } else {
+        (remainder.trim().to_string(), 22)
+    };
+
+    if host.is_empty() {
+        host = "localhost".to_string();
+    }
+    if port == 0 {
+        port = 22;
+    }
+
+    (user, host, port)
 }
 
 impl eframe::App for FerroSshApp {
@@ -608,9 +644,11 @@ impl FerroSshApp {
                     match action {
                         PasswordAction::Submit(secret) => {
                             self.sessions[self.active_session_idx].send_password(&secret);
+                            self.modal_state.password_input.zeroize();
                         }
                         PasswordAction::Cancel => {
                             self.sessions[self.active_session_idx].active_prompt = None;
+                            self.modal_state.password_input.zeroize();
                         }
                         PasswordAction::None => {}
                     }

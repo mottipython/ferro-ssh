@@ -96,6 +96,7 @@ impl TunnelManager {
             }
         }
 
+        cmd.arg("--");
         cmd.arg(format!("{}@{}", tunnel.ssh_user, tunnel.ssh_host));
 
         let child = cmd
