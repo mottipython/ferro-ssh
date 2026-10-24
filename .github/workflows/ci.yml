@@ -40,3 +40,29 @@ jobs:
         with:
           name: ferro-ssh-windows-x86_64
           path: target/release/ferro-ssh.exe
+
+  build-macos:
+    name: Build macOS (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-14
+            target: aarch64-apple-darwin
+            artifact: ferro-ssh-macos-arm64
+          - os: macos-13
+            target: x86_64-apple-darwin
+            artifact: ferro-ssh-macos-x86_64
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Build Release
+        run: cargo build --release --target ${{ matrix.target }} --verbose
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: target/${{ matrix.target }}/release/ferro-ssh

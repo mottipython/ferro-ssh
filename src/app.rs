@@ -51,7 +51,7 @@ impl FerroSshApp {
         let available_keys = discover_ssh_keys();
         let toolbox = ToolboxStore::load();
 
-        Self {
+        let mut app = Self {
             profile_store,
             sessions: Vec::new(),
             active_session_idx: 0,
@@ -69,7 +69,62 @@ impl FerroSshApp {
             toolbox_search: String::new(),
             toolbox_category: ToolboxCategory::All,
             custom_cmd_draft: None,
+        };
+
+        // Parse command line arguments for direct tab selection and connection
+        let args: Vec<String> = std::env::args().skip(1).collect();
+        let mut i = 0;
+        while i < args.len() {
+            match args[i].as_str() {
+                "--view" | "-v" => {
+                    if i + 1 < args.len() {
+                        match args[i + 1].to_lowercase().as_str() {
+                            "sftp" => app.view_mode = ViewMode::Sftp,
+                            "tunnels" | "tunnel" => app.view_mode = ViewMode::Tunnels,
+                            "settings" => app.view_mode = ViewMode::Settings,
+                            _ => app.view_mode = ViewMode::Terminal,
+                        }
+                        i += 1;
+                    }
+                }
+                "--connect" | "-c" => {
+                    if i + 1 < args.len() {
+                        let target = &args[i + 1];
+                        if let Some(profile) = app
+                            .profile_store
+                            .profiles
+                            .iter()
+                            .find(|p| p.name.eq_ignore_ascii_case(target) || p.id == *target)
+                            .cloned()
+                        {
+                            app.connect_to_profile(profile);
+                        } else {
+                            app.quick_connect = target.clone();
+                            app.connect_quick();
+                        }
+                        i += 1;
+                    }
+                }
+                arg if !arg.starts_with('-') => {
+                    if let Some(profile) = app
+                        .profile_store
+                        .profiles
+                        .iter()
+                        .find(|p| p.name.eq_ignore_ascii_case(arg) || p.id == *arg)
+                        .cloned()
+                    {
+                        app.connect_to_profile(profile);
+                    } else {
+                        app.quick_connect = arg.to_string();
+                        app.connect_quick();
+                    }
+                }
+                _ => {}
+            }
+            i += 1;
         }
+
+        app
     }
 
     pub fn set_status(&mut self, msg: &str) {

@@ -101,19 +101,47 @@ impl ProfileStore {
     fn default_profiles() -> Vec<ConnectionProfile> {
         vec![
             ConnectionProfile {
-                id: uuid_simple(),
-                name: "Localhost (Test)".to_string(),
+                id: "docker-test".to_string(),
+                name: "Docker Test Server".to_string(),
                 host: "127.0.0.1".to_string(),
-                port: 22,
-                username: whoami::username_or_default(),
+                port: 2222,
+                username: "testuser".to_string(),
                 auth_method: AuthMethod::Password,
                 key_path: None,
-                group: "Local".to_string(),
-                badge_color: [46, 204, 113], // Emerald green
-                notes: "Local machine SSH server".to_string(),
+                group: "Development".to_string(),
+                badge_color: [52, 152, 219], // Blue
+                notes: "Local Alpine test container".to_string(),
                 tunnels: vec![],
                 last_connected: None,
-            }
+            },
+            ConnectionProfile {
+                id: "prod-web".to_string(),
+                name: "Production Web 01".to_string(),
+                host: "web01.internal.cloud".to_string(),
+                port: 22,
+                username: "deploy".to_string(),
+                auth_method: AuthMethod::KeyFile,
+                key_path: None,
+                group: "Production".to_string(),
+                badge_color: [46, 204, 113], // Emerald green
+                notes: "Primary edge proxy & API gateway".to_string(),
+                tunnels: vec![],
+                last_connected: None,
+            },
+            ConnectionProfile {
+                id: "db-replica".to_string(),
+                name: "Database Replica".to_string(),
+                host: "db-replica.internal.cloud".to_string(),
+                port: 5432,
+                username: "postgres".to_string(),
+                auth_method: AuthMethod::KeyFile,
+                key_path: None,
+                group: "Database".to_string(),
+                badge_color: [231, 76, 60], // Coral red
+                notes: "PostgreSQL read-only replica".to_string(),
+                tunnels: vec![],
+                last_connected: None,
+            },
         ]
     }
 
