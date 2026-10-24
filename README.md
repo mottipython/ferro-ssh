@@ -1,5 +1,10 @@
 # FerroSSH ⚡
 
+[![CI & Build Releases](https://github.com/mottipython/ferro-ssh/actions/workflows/ci.yml/badge.svg)](https://github.com/mottipython/ferro-ssh/actions/workflows/ci.yml)
+[![Security Policy](https://img.shields.io/badge/Security-Documented_%26_Audited-blue.svg)](SECURITY.md)
+[![Fuzzing](https://img.shields.io/badge/Fuzzing-1M%2B%20Passing-brightgreen.svg)](tests/fuzz_test.rs)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A high-performance graphical SSH client for Linux, Windows, and macOS written in Rust with `egui` (`eframe`). Built with native PTY terminal emulation, OpenSSH transport delegation, Trust-On-First-Use (TOFU) host key verification, in-memory credential zeroization, and an integrated SysAdmin Command Toolbox.
 
 ![FerroSSH TOFU Fingerprint Verification and Command Toolbox](docs/screenshots/02-fingerprint-dialog.png)

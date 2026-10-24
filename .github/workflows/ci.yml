@@ -18,6 +18,8 @@ jobs:
           sudo apt-get install -y libxkbcommon-dev libwayland-dev
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
+      - name: Run Test Suite & Fuzz Tests
+        run: cargo test --verbose
       - name: Build Release
         run: cargo build --release --verbose
       - name: Upload Linux Artifact
@@ -33,6 +35,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
+      - name: Run Test Suite & Fuzz Tests
+        run: cargo test --verbose
       - name: Build Release
         run: cargo build --release --verbose
       - name: Upload Windows Artifact
