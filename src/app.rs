@@ -6,6 +6,7 @@ use crate::profiles::{discover_ssh_keys, ConnectionProfile, ProfileStore};
 use crate::session::{PromptType, SshSession};
 use crate::sftp::SftpBrowser;
 use crate::terminal::render_terminal_ui;
+use crate::theme::{build_dark_visuals, build_light_visuals, AppSettings, ThemeMode};
 use crate::toolbox::{CustomCmdDraft, ToolboxCategory, ToolboxStore};
 use crate::tunnels::{PortTunnel, TunnelManager};
 use eframe::egui::{self, Color32, FontFamily, FontId, Key, Modifiers, RichText, Vec2};
@@ -29,7 +30,8 @@ pub struct FerroSshApp {
     modal_state: ModalState,
     view_mode: ViewMode,
     available_keys: Vec<std::path::PathBuf>,
-    terminal_font_size: f32,
+    settings: AppSettings,
+    last_applied_dark: Option<bool>,
     status_msg: Option<(String, std::time::Instant)>,
     toolbox: ToolboxStore,
     show_toolbox: bool,
@@ -40,11 +42,13 @@ pub struct FerroSshApp {
 
 impl FerroSshApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        // Setup dark theme
-        let mut visuals = egui::Visuals::dark();
-        visuals.panel_fill = Color32::from_rgb(22, 24, 29);
-        visuals.window_fill = Color32::from_rgb(28, 32, 38);
-        visuals.widgets.noninteractive.bg_fill = Color32::from_rgb(28, 32, 38);
+        let settings = AppSettings::load();
+        let is_dark = settings.theme_mode.is_dark(cc.integration_info.system_theme);
+        let visuals = if is_dark {
+            build_dark_visuals()
+        } else {
+            build_light_visuals()
+        };
         cc.egui_ctx.set_visuals(visuals);
 
         let profile_store = ProfileStore::load();
@@ -62,7 +66,8 @@ impl FerroSshApp {
             modal_state: ModalState::default(),
             view_mode: ViewMode::Terminal,
             available_keys,
-            terminal_font_size: 13.0,
+            settings,
+            last_applied_dark: Some(is_dark),
             status_msg: None,
             toolbox,
             show_toolbox: true,
@@ -84,6 +89,17 @@ impl FerroSshApp {
                             "settings" => app.view_mode = ViewMode::Settings,
                             _ => app.view_mode = ViewMode::Terminal,
                         }
+                        i += 1;
+                    }
+                }
+                "--theme" | "-t" => {
+                    if i + 1 < args.len() {
+                        match args[i + 1].to_lowercase().as_str() {
+                            "light" => app.settings.theme_mode = ThemeMode::Light,
+                            "dark" => app.settings.theme_mode = ThemeMode::Dark,
+                            _ => app.settings.theme_mode = ThemeMode::System,
+                        }
+                        app.last_applied_dark = None;
                         i += 1;
                     }
                 }
@@ -175,7 +191,20 @@ impl FerroSshApp {
 }
 
 impl eframe::App for FerroSshApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        // Automatically sync theme with operating system setting or user override
+        let system_theme = frame.info().system_theme;
+        let should_be_dark = self.settings.theme_mode.is_dark(system_theme);
+        if self.last_applied_dark != Some(should_be_dark) {
+            let visuals = if should_be_dark {
+                build_dark_visuals()
+            } else {
+                build_light_visuals()
+            };
+            ctx.set_visuals(visuals);
+            self.last_applied_dark = Some(should_be_dark);
+        }
+
         // Pump incoming PTY events for all active sessions
         for session in &mut self.sessions {
             session.update();
@@ -191,6 +220,29 @@ impl eframe::App for FerroSshApp {
                 ui.selectable_value(&mut self.view_mode, ViewMode::Sftp, "📁 SFTP Files");
                 ui.selectable_value(&mut self.view_mode, ViewMode::Tunnels, "🔀 Port Tunnels");
                 ui.selectable_value(&mut self.view_mode, ViewMode::Settings, "⚙ Settings");
+
+                ui.separator();
+                let theme_btn_label = match self.settings.theme_mode {
+                    ThemeMode::System => {
+                        let active_icon = if self.last_applied_dark.unwrap_or(true) { "🌙" } else { "☀" };
+                        format!("🖥 Auto ({})", active_icon)
+                    }
+                    ThemeMode::Dark => "🌙 Dark".to_string(),
+                    ThemeMode::Light => "☀ Light".to_string(),
+                };
+                if ui
+                    .small_button(theme_btn_label)
+                    .on_hover_text("Toggle theme preference: System (Auto) -> Dark -> Light")
+                    .clicked()
+                {
+                    self.settings.theme_mode = match self.settings.theme_mode {
+                        ThemeMode::System => ThemeMode::Dark,
+                        ThemeMode::Dark => ThemeMode::Light,
+                        ThemeMode::Light => ThemeMode::System,
+                    };
+                    self.settings.save();
+                    self.last_applied_dark = None; // trigger instant redraw on next frame
+                }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.button("⚡ Connect").clicked() {
@@ -211,12 +263,15 @@ impl eframe::App for FerroSshApp {
         // Bottom Status Bar
         egui::TopBottomPanel::bottom("bottom_status").show(ctx, |ui| {
             ui.horizontal(|ui| {
+                let is_dark = ui.visuals().dark_mode;
                 if let Some((msg, created)) = &self.status_msg {
                     if created.elapsed().as_secs() < 6 {
-                        ui.label(RichText::new(msg).small().color(Color32::from_rgb(180, 180, 180)));
+                        let msg_color = if is_dark { Color32::from_rgb(180, 180, 180) } else { Color32::from_rgb(70, 75, 85) };
+                        ui.label(RichText::new(msg).small().color(msg_color));
                     }
                 } else {
-                    ui.label(RichText::new("Ready").small().color(Color32::from_rgb(120, 120, 120)));
+                    let ready_color = if is_dark { Color32::from_rgb(120, 120, 120) } else { Color32::from_rgb(105, 110, 120) };
+                    ui.label(RichText::new("Ready").small().color(ready_color));
                 }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -316,12 +371,17 @@ impl eframe::App for FerroSshApp {
                             });
                         });
 
+                        let sub_color = if ui.visuals().dark_mode {
+                            Color32::from_rgb(140, 140, 140)
+                        } else {
+                            Color32::from_rgb(95, 100, 110)
+                        };
                         ui.horizontal(|ui| {
                             ui.add_space(14.0);
                             ui.label(
                                 RichText::new(format!("{}@{}:{}", profile.username, profile.host, profile.port))
                                     .small()
-                                    .color(Color32::from_rgb(140, 140, 140)),
+                                    .color(sub_color),
                             );
                         });
                         ui.add_space(4.0);
@@ -465,7 +525,7 @@ impl FerroSshApp {
 
         // Terminal Grid Rendering & Input Handling
         if let Some(session) = self.sessions.get_mut(self.active_session_idx) {
-            let font_id = FontId::new(self.terminal_font_size, FontFamily::Monospace);
+            let font_id = FontId::new(self.settings.terminal_font_size, FontFamily::Monospace);
 
             // Handle terminal input
             let events = ui.input(|i| i.events.clone());
@@ -713,11 +773,40 @@ impl FerroSshApp {
         ui.add_space(12.0);
 
         ui.group(|ui| {
-            ui.label(RichText::new("Terminal Appearance").strong());
+            ui.label(RichText::new("Theme & Visual Appearance").strong());
             ui.add_space(6.0);
+
+            let prev_theme = self.settings.theme_mode;
             ui.horizontal(|ui| {
-                ui.label("Font Size:");
-                ui.add(egui::Slider::new(&mut self.terminal_font_size, 10.0..=24.0).text("pt"));
+                ui.label("Theme:");
+                ui.radio_value(&mut self.settings.theme_mode, ThemeMode::System, "System (Auto)");
+                ui.radio_value(&mut self.settings.theme_mode, ThemeMode::Dark, "Dark Mode");
+                ui.radio_value(&mut self.settings.theme_mode, ThemeMode::Light, "Light Mode");
+            });
+
+            let active_desc = match self.settings.theme_mode {
+                ThemeMode::System => {
+                    let active_name = if self.last_applied_dark.unwrap_or(true) { "Dark" } else { "Light" };
+                    format!("Matches operating system preference dynamically (currently active: {}).", active_name)
+                }
+                ThemeMode::Dark => "Always uses dark theme.".to_string(),
+                ThemeMode::Light => "Always uses light theme.".to_string(),
+            };
+            ui.label(RichText::new(active_desc).small().weak());
+
+            if self.settings.theme_mode != prev_theme {
+                self.settings.save();
+                self.last_applied_dark = None; // trigger instant redraw
+            }
+
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                ui.label("Terminal Font Size:");
+                let prev_font = self.settings.terminal_font_size;
+                ui.add(egui::Slider::new(&mut self.settings.terminal_font_size, 10.0..=24.0).text("pt"));
+                if (self.settings.terminal_font_size - prev_font).abs() > 0.01 {
+                    self.settings.save();
+                }
             });
         });
 
@@ -845,20 +934,31 @@ impl FerroSshApp {
                         });
                     });
 
+                    let is_dark = ui.visuals().dark_mode;
                     let mut cmd_preview = cmd.command.clone();
+                    let code_color = if is_dark {
+                        Color32::from_rgb(175, 230, 175)
+                    } else {
+                        Color32::from_rgb(20, 115, 60)
+                    };
                     ui.add(
                         egui::TextEdit::singleline(&mut cmd_preview)
                             .font(FontId::new(11.0, FontFamily::Monospace))
-                            .text_color(Color32::from_rgb(175, 230, 175))
+                            .text_color(code_color)
                             .desired_width(ui.available_width())
                             .interactive(false),
                     );
 
                     if !cmd.description.is_empty() {
+                        let desc_color = if is_dark {
+                            Color32::from_rgb(150, 150, 150)
+                        } else {
+                            Color32::from_rgb(95, 100, 110)
+                        };
                         ui.label(
                             RichText::new(&cmd.description)
                                 .small()
-                                .color(Color32::from_rgb(150, 150, 150)),
+                                .color(desc_color),
                         );
                     }
 

@@ -345,9 +345,24 @@ pub fn render_terminal_ui(
         ui.allocate_painter(Vec2::new(total_width, total_height), egui::Sense::click_and_drag());
 
     let rect = response.rect;
+    let is_dark = ui.visuals().dark_mode;
 
-    // Draw dark terminal background
-    painter.rect_filled(rect, 0.0, Color32::from_rgb(18, 20, 24));
+    let term_bg = if is_dark {
+        Color32::from_rgb(18, 20, 24)
+    } else {
+        Color32::from_rgb(250, 252, 255)
+    };
+    let default_fg = if is_dark {
+        Color32::from_rgb(220, 220, 220)
+    } else {
+        Color32::from_rgb(28, 32, 40)
+    };
+
+    // Draw terminal background
+    painter.rect_filled(rect, 0.0, term_bg);
+    if !is_dark {
+        painter.rect_stroke(rect, 0.0, Stroke::new(1.0_f32, Color32::from_rgb(220, 225, 235)));
+    }
 
     // Render screen grid
     for (row_idx, row) in screen.grid.iter().enumerate() {
@@ -362,14 +377,24 @@ pub fn render_terminal_ui(
                 painter.rect_filled(cell_rect, 0.0, bg_color);
             }
 
-            // Draw character
+            // Draw character with contrast check
             if cell.c != ' ' && cell.c != '\0' {
+                let fg_color = if cell.style.fg == Color32::from_rgb(220, 220, 220) {
+                    default_fg
+                } else if !is_dark && cell.style.bg.is_none() && cell.style.fg.r() > 215 && cell.style.fg.g() > 215 && cell.style.fg.b() > 215 {
+                    Color32::from_rgb(80, 85, 95)
+                } else if is_dark && cell.style.bg.is_none() && cell.style.fg.r() < 25 && cell.style.fg.g() < 25 && cell.style.fg.b() < 25 {
+                    Color32::from_rgb(155, 160, 170)
+                } else {
+                    cell.style.fg
+                };
+
                 painter.text(
                     Pos2::new(x, y),
                     egui::Align2::LEFT_TOP,
                     cell.c.to_string(),
                     font_id.clone(),
-                    cell.style.fg,
+                    fg_color,
                 );
             }
 
@@ -388,7 +413,12 @@ pub fn render_terminal_ui(
         let cx = rect.min.x + (screen.cursor_x as f32) * char_width;
         let cy = rect.min.y + (screen.cursor_y as f32) * line_height;
         let cursor_rect = Rect::from_min_size(Pos2::new(cx, cy), Vec2::new(char_width, line_height));
-        painter.rect_filled(cursor_rect, 1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 160));
+        let cursor_color = if is_dark {
+            Color32::from_rgba_unmultiplied(255, 255, 255, 160)
+        } else {
+            Color32::from_rgba_unmultiplied(20, 25, 35, 160)
+        };
+        painter.rect_filled(cursor_rect, 1.0, cursor_color);
     }
 
     response

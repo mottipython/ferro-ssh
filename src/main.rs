@@ -5,6 +5,7 @@ mod security;
 mod session;
 mod sftp;
 mod terminal;
+mod theme;
 mod toolbox;
 mod tunnels;
 

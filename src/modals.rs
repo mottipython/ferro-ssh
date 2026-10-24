@@ -59,7 +59,12 @@ pub fn render_fingerprint_modal(
         .fixed_size(Vec2::new(480.0, 300.0))
         .show(ctx, |ui| {
             ui.add_space(8.0);
-            ui.heading(RichText::new("Unrecognized Host Fingerprint").color(Color32::from_rgb(241, 196, 15)));
+            let heading_color = if ui.visuals().dark_mode {
+                Color32::from_rgb(241, 196, 15)
+            } else {
+                Color32::from_rgb(180, 115, 0)
+            };
+            ui.heading(RichText::new("Unrecognized Host Fingerprint").color(heading_color));
             ui.add_space(6.0);
 
             ui.label(
@@ -68,8 +73,19 @@ pub fn render_fingerprint_modal(
             );
             ui.add_space(10.0);
 
+            let frame_bg = if ui.visuals().dark_mode {
+                Color32::from_rgb(26, 29, 36)
+            } else {
+                Color32::from_rgb(238, 242, 248)
+            };
+            let fp_color = if ui.visuals().dark_mode {
+                Color32::from_rgb(46, 204, 113)
+            } else {
+                Color32::from_rgb(24, 135, 65)
+            };
+
             egui::Frame::group(ui.style())
-                .fill(Color32::from_rgb(26, 29, 36))
+                .fill(frame_bg)
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.label(RichText::new("Host:").strong());
@@ -85,7 +101,7 @@ pub fn render_fingerprint_modal(
                     ui.label(
                         RichText::new(&prompt.fingerprint)
                             .monospace()
-                            .color(Color32::from_rgb(46, 204, 113)),
+                            .color(fp_color),
                     );
                 });
 
@@ -97,9 +113,15 @@ pub fn render_fingerprint_modal(
             );
             ui.add_space(12.0);
 
+            let btn_text_color = if ui.visuals().dark_mode {
+                Color32::WHITE
+            } else {
+                Color32::from_rgb(20, 25, 35)
+            };
+
             ui.horizontal(|ui| {
                 if ui
-                    .button(RichText::new("✔ Accept & Save to Known Hosts").strong().color(Color32::WHITE))
+                    .button(RichText::new("✔ Accept & Save to Known Hosts").strong().color(btn_text_color))
                     .clicked()
                 {
                     action = FingerprintAction::AcceptAndSave;
@@ -155,10 +177,16 @@ pub fn render_password_modal(
 
             let enter_pressed = edit_response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
 
+            let btn_text_color = if ui.visuals().dark_mode {
+                Color32::WHITE
+            } else {
+                Color32::from_rgb(20, 25, 35)
+            };
+
             ui.add_space(12.0);
             ui.horizontal(|ui| {
                 if ui
-                    .button(RichText::new("Connect / Send Password").strong().color(Color32::WHITE))
+                    .button(RichText::new("Connect / Send Password").strong().color(btn_text_color))
                     .clicked()
                     || enter_pressed
                 {
@@ -280,8 +308,14 @@ pub fn render_edit_profile_modal(
             ui.separator();
             ui.add_space(8.0);
 
+            let save_btn_color = if ui.visuals().dark_mode {
+                Color32::WHITE
+            } else {
+                Color32::from_rgb(20, 25, 35)
+            };
+
             ui.horizontal(|ui| {
-                if ui.button(RichText::new("Save Profile").strong().color(Color32::WHITE)).clicked() {
+                if ui.button(RichText::new("Save Profile").strong().color(save_btn_color)).clicked() {
                     action = ProfileEditAction::Save(profile.clone());
                 }
                 if ui.button("Cancel").clicked() {

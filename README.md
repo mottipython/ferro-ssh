@@ -15,11 +15,16 @@ A secure, high-performance, and feature-rich graphical SSH client written in Rus
 | **SSH Port Forwarding & Tunnels**<br>Manage local `-L` port forwarding rules for remote databases, metrics dashboards, and web services. | ![Port Forwarding & Tunnels](docs/screenshots/03-tunnels.png) |
 | **Integrated Remote SFTP Explorer**<br>Fast remote file management, directory navigation, file sizes, and native upload/download pickers. | ![SFTP File Explorer](docs/screenshots/04-sftp-browser.png) |
 | **Settings, Appearance & Key Security**<br>Dynamic font sizing, automated `~/.ssh/` key discovery (`id_ed25519`, `id_rsa`), and TOFU configuration. | ![Settings & Appearance](docs/screenshots/05-settings.png) |
+| **Adaptive Theme (Light & Dark Mode)**<br>Automatically matches system OS dark or light mode in real time, with high-contrast terminal styling and 1-click manual override. | ![Light Theme](docs/screenshots/06-light-mode.png) |
 
 ---
 
 ## Features
 
+- **🌓 Dynamic System Theme Support (Light & Dark Mode):**
+  - Automatically matches OS light or dark mode settings in real-time across Linux, macOS, and Windows.
+  - Manual override selector in Settings (`System (Auto)`, `Dark Mode`, `Light Mode`) and instant 1-click cycle button in the top navigation bar.
+  - High-contrast terminal rendering with theme-aware background, foreground text, and cursor styling.
 - **🛡️ Cryptographic Host Key Verification (TOFU):**
   - Intercepts unrecognized SSH host fingerprints and presents a Trust-On-First-Use confirmation modal.
   - Options to **Accept & Save to `~/.ssh/known_hosts`**, **Accept Once (Session Only)**, or **Reject & Abort**.
