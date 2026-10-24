@@ -48,7 +48,7 @@ impl Default for ConnectionProfile {
             name: "New Connection".to_string(),
             host: "127.0.0.1".to_string(),
             port: 22,
-            username: whoami::username_or_default(),
+            username: "user".to_string(),
             auth_method: AuthMethod::Password,
             key_path: None,
             group: "General".to_string(),
@@ -99,50 +99,7 @@ impl ProfileStore {
     }
 
     fn default_profiles() -> Vec<ConnectionProfile> {
-        vec![
-            ConnectionProfile {
-                id: "docker-test".to_string(),
-                name: "Docker Test Server".to_string(),
-                host: "127.0.0.1".to_string(),
-                port: 2222,
-                username: "testuser".to_string(),
-                auth_method: AuthMethod::Password,
-                key_path: None,
-                group: "Development".to_string(),
-                badge_color: [52, 152, 219], // Blue
-                notes: "Local Alpine test container".to_string(),
-                tunnels: vec![],
-                last_connected: None,
-            },
-            ConnectionProfile {
-                id: "prod-web".to_string(),
-                name: "Production Web 01".to_string(),
-                host: "web01.internal.cloud".to_string(),
-                port: 22,
-                username: "deploy".to_string(),
-                auth_method: AuthMethod::KeyFile,
-                key_path: None,
-                group: "Production".to_string(),
-                badge_color: [46, 204, 113], // Emerald green
-                notes: "Primary edge proxy & API gateway".to_string(),
-                tunnels: vec![],
-                last_connected: None,
-            },
-            ConnectionProfile {
-                id: "db-replica".to_string(),
-                name: "Database Replica".to_string(),
-                host: "db-replica.internal.cloud".to_string(),
-                port: 5432,
-                username: "postgres".to_string(),
-                auth_method: AuthMethod::KeyFile,
-                key_path: None,
-                group: "Database".to_string(),
-                badge_color: [231, 76, 60], // Coral red
-                notes: "PostgreSQL read-only replica".to_string(),
-                tunnels: vec![],
-                last_connected: None,
-            },
-        ]
+        Vec::new()
     }
 
     pub fn add_or_update(&mut self, profile: ConnectionProfile) {
@@ -189,13 +146,4 @@ fn uuid_simple() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos();
     format!("{:x}", now)
-}
-
-mod whoami {
-    pub fn username_or_default() -> String {
-        std::env::var("USER")
-            .or_else(|_| std::env::var("USERNAME"))
-            .or_else(|_| std::env::var("LOGNAME"))
-            .unwrap_or_else(|_| "user".to_string())
-    }
 }

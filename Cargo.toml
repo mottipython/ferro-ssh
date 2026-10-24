@@ -2,7 +2,7 @@
 name = "ferro-ssh"
 version = "0.1.0"
 edition = "2021"
-authors = ["Motti Schleider <motti.schleider@gmail.com>"]
+authors = ["FerroSSH Team"]
 description = "A secure, feature-rich GUI SSH client with PTY terminal, SFTP, and host key protection"
 license = "MIT"
 

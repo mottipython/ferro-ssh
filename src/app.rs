@@ -386,6 +386,17 @@ impl eframe::App for FerroSshApp {
                         });
                         ui.add_space(4.0);
                     }
+
+                    if self.profile_store.profiles.is_empty() {
+                        ui.add_space(24.0);
+                        ui.vertical_centered(|ui| {
+                            ui.label(RichText::new("No saved connections yet").weak());
+                            ui.add_space(6.0);
+                            if ui.button("➕ Add Connection").clicked() {
+                                self.modal_state.editing_profile = Some(ConnectionProfile::default());
+                            }
+                        });
+                    }
                 });
 
                 if let Some(p) = connect_profile {
@@ -720,8 +731,8 @@ impl FerroSshApp {
                     8080,
                     "127.0.0.1",
                     8080,
-                    "motti",
-                    "127.0.0.1",
+                    "user",
+                    "remote.example.com",
                     22,
                 ));
             }
@@ -733,6 +744,19 @@ impl FerroSshApp {
         egui::ScrollArea::vertical().show(ui, |ui| {
             let mut start_id = None;
             let mut stop_id = None;
+
+            if self.tunnel_manager.tunnels.is_empty() {
+                ui.add_space(30.0);
+                ui.vertical_centered(|ui| {
+                    ui.label(RichText::new("No active port forwards configured.").weak());
+                    ui.add_space(6.0);
+                    ui.label(
+                        RichText::new("Click '+ Add Local Forward (-L)' above to create a local SSH port forward.")
+                            .small()
+                            .weak(),
+                    );
+                });
+            }
 
             for tunnel in &self.tunnel_manager.tunnels {
                 ui.group(|ui| {

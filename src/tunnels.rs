@@ -58,26 +58,7 @@ pub struct TunnelManager {
 impl TunnelManager {
     pub fn new() -> Self {
         Self {
-            tunnels: vec![
-                PortTunnel::new(
-                    "PostgreSQL Direct Forward",
-                    5432,
-                    "127.0.0.1",
-                    5432,
-                    "postgres",
-                    "db-replica.internal.cloud",
-                    22,
-                ),
-                PortTunnel::new(
-                    "Grafana Dashboard",
-                    3000,
-                    "127.0.0.1",
-                    3000,
-                    "admin",
-                    "monitoring.internal.cloud",
-                    22,
-                ),
-            ],
+            tunnels: Vec::new(),
             active_children: Vec::new(),
         }
     }
