@@ -8,38 +8,46 @@ on:
 
 jobs:
   build-linux:
-    name: Build Linux (Fedora/Ubuntu)
+    name: Build Linux (Ubuntu x86_64)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install dependencies
+      - name: Install Linux system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libxkbcommon-dev libwayland-dev
-      - name: Set up Rust
+          sudo apt-get install -y \
+            libxkbcommon-dev \
+            libwayland-dev \
+            libxcb-render0-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libx11-dev \
+            libssl-dev \
+            pkg-config
+      - name: Set up Rust stable
         uses: dtolnay/rust-toolchain@stable
-      - name: Run Test Suite & Fuzz Tests
+      - name: Run test suite (unit + fuzz integration)
         run: cargo test --verbose
-      - name: Build Release
+      - name: Build release binary
         run: cargo build --release --verbose
-      - name: Upload Linux Artifact
+      - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: ferro-ssh-linux-x86_64
           path: target/release/ferro-ssh
 
   build-windows:
-    name: Build Windows
+    name: Build Windows (x86_64)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Rust
+      - name: Set up Rust stable
         uses: dtolnay/rust-toolchain@stable
-      - name: Run Test Suite & Fuzz Tests
+      - name: Run test suite
         run: cargo test --verbose
-      - name: Build Release
+      - name: Build release binary
         run: cargo build --release --verbose
-      - name: Upload Windows Artifact
+      - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: ferro-ssh-windows-x86_64
@@ -59,13 +67,15 @@ jobs:
             artifact: ferro-ssh-macos-x86_64
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Rust
+      - name: Set up Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      - name: Build Release
+      - name: Run test suite
+        run: cargo test --verbose
+      - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }} --verbose
-      - name: Upload macOS Artifact
+      - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
